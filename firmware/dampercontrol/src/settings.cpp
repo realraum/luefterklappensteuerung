@@ -21,9 +21,14 @@
 */
 
 #include <stdio.h>
+#include <EEPROM.h>
 #include "dampercontrol.h"
 
-#define EEPROM_DATA_VERSION 1
+#define EEPROM_CURRENT_VERSION 1
+#define EEPROM_ADDR_VERS 0
+#define EEPROM_SIZE_VERS 1
+#define EEPROM_ADDR_DATA (EEPROM_ADDR_VERS+EEPROM_SIZE_VERS)
+#define EEPROM_SIZE_DATA 6
 
 
 //read this from eeprom on start
@@ -49,40 +54,62 @@ uint8_t pjon_device_id_ = 255; //not assigned
 uint8_t pjon_sensor_destination_id_ = 0; //BROADCAST
 
 
-void saveSettings2EEPROM()
+///EEPROM LAYOUT
+/// byte0: version
+/// byte1: num dampers
+/// byte2: damper0_open_pos
+/// byte3: damper1_open_pos
+/// byte4: damper2_open_pos
+/// byte5: damper installed bitfield
+
+void eeprom_save_settings()
 {
-  uint8_t *eeprom_pos=0;
+  uint8_t eeprom_pos=EEPROM_ADDR_DATA;
   uint8_t damper_installed=0;
 
-  eeprom_write_byte(eeprom_pos++, EEPROM_DATA_VERSION);
-  eeprom_write_byte(eeprom_pos++, pjon_device_id_);
-  eeprom_write_byte(eeprom_pos++, NUM_DAMPER);
+  EEPROM.write(eeprom_pos++, (uint8_t) pjon_device_id_);
+  EEPROM.write(eeprom_pos++, (uint8_t) NUM_DAMPER);
   for (uint8_t d=0; d<NUM_DAMPER; d++)
   {
-    eeprom_write_byte(eeprom_pos++, damper_open_pos_[d]);
+    EEPROM.put(eeprom_pos++, damper_open_pos_[d]);
     if (damper_installed_[d])
       damper_installed |= _BV(d);
   }
-  eeprom_write_byte(eeprom_pos++, damper_installed);
+  EEPROM.put(eeprom_pos++, damper_installed);
 }
 
-void loadSettingsFromEEPROM()
-{
-  uint8_t *eeprom_pos=0;
 
-  if (eeprom_read_byte(eeprom_pos++) != EEPROM_DATA_VERSION)
+void eeprom_load_settings()
+{
+
+  if (EEPROM.read(EEPROM_ADDR_VERS) != EEPROM_CURRENT_VERSION)
+    return 0;
+  uint8_t eeprom_pos=EEPROM_ADDR_DATA;
+
+  pjon_device_id_ = EEPROM.read(eeprom_pos++);
+
+  if (EEPROM.read(eeprom_pos++) != NUM_DAMPER)
     return;
-  pjon_device_id_ = eeprom_read_byte(eeprom_pos++);
-  if (eeprom_read_byte(eeprom_pos++) != NUM_DAMPER)
-    return;
+
   for (uint8_t d=0; d<NUM_DAMPER; d++)
   {
-    damper_open_pos_[d] = eeprom_read_byte(eeprom_pos++);
+    damper_open_pos_[d] = EEPROM.read(eeprom_pos++);;
   }
-  uint8_t damper_installed = eeprom_read_byte(eeprom_pos++);
+  uint8_t damper_installed = EEPROM.read(eeprom_pos++);;
   for (uint8_t d=0; d<NUM_DAMPER; d++)
   {
     damper_installed_[d] = 0 < (_BV(d) & damper_installed);
+  }
+}
+
+void eeprom_init()
+{
+  EEPROM.begin(EEPROM_SIZE);
+  if (EEPROM.read(EEPROM_ADDR_VERS) != EEPROM_CURRENT_VERSION)
+  {
+    EEPROM.write(EEPROM_ADDR_VERS, EEPROM_CURRENT_VERSION);
+    EEPROM.commit();
+    eeprom_save_settings();
   }
 }
 
@@ -92,7 +119,7 @@ void updateSettingsFromPacket(updatesettings_t *s)
   {
     damper_open_pos_[d] =  s->damper_open_pos[d];
   }
-  saveSettings2EEPROM();
+  eeprom_save_settings();
 }
 
 void updateInstalledDampersFromChar(uint8_t damper_installed)
@@ -101,7 +128,7 @@ void updateInstalledDampersFromChar(uint8_t damper_installed)
   {
     damper_installed_[d] = 0 < (_BV(d) & damper_installed);
   }
-  saveSettings2EEPROM();
+  eeprom_save_settings();
 }
 
 uint8_t getInstalledDampersAsBitfield()

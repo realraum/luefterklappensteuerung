@@ -491,6 +491,7 @@ int main()
   usbio_init();
 
   // init
+  eeprom_init();
   loadSettingsFromEEPROM();
   pjon_init(); //PJON first since it calls arduino init which might do who knows what
   initPINs();
