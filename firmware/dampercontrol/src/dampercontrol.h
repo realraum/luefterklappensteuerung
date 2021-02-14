@@ -25,73 +25,67 @@
 
 #include <stdint.h>
 
-/* Hardware: AVR ATMEGA32U4 (Arduino Pro Micro)
- * PinOut: https://deskthority.net/wiki/Arduino_Pro_Micro
+/* Hardware: ESPRESSIF ESP32-WROOM-32E
  *
  *
  * ==== PINS ====
- * PD0... SPI Sensor1 CS
- * PD1... SPI Sensor0 CS
- * PD4... SPI Sensor2 CS
- * PD2... RX
- * PD3....TX
- * PB1... SPI CLK
- * PB2... SPI MOSI
- * PB3... SPI MISO
- * PB4 .. Endstop 0  (PCINT4)
- * PB5 .. Endstop 1  (PCINT5)
- * PB6 .. Endstop 2  (PCINT6)
- * PF4... Damper Motor 0
- * PF5... Damper Motor 1
- * PF6... Damper Motor 2
- * PC6... Ventilation Fan of Laminaflow
- * PD7... PJON Pin
- * PE6... Main Ventilation Fan (Teensy2LED)
- * PF0/PF7... =ADC0 needed by PJON
+ *
+ * IO0.... Boot0 / Button
+ * IO1.... TXD0
+ * IO2.... Onobard LED
+ * IO3.... RXD0
+ *
+ * IO12... MISO
+ * IO13... MOSI
+ * IO14... SCK
+ * IO15... LAN_CS
+ * IO16... LAN_RESET
+ * IO17... Endstop Damper 0
+ * IO18... Endstop Damper 1
+ * IO19... Endstop Damper 2
+ *
+ * IO21... Damper Motor 0
+ * IO22... Damper Motor 1
+ * IO23... Damper Motor 2
+ *
+ * IO25... PJON
+ * IO26... SPI Sensor0 CS
+ * IO27... SPI Sensor1 CS
+ *
+ * IO32... SPI Sensor2 CS
+ * IO33... Main Ventilation Fan
+
 */
 
-#define PIN_CS_S0 PD1
-#define REG_CS_S0 PIND
-#define PIN_CS_S1 PD0
-#define REG_CS_S1 PIND
-#define PIN_CS_S2 PD4
-#define REG_CS_S2 PIND
-#define PIN_ENDSTOP_0 PB4
-#define REG_ENDSTOP_0 PINB
-#define PIN_ENDSTOP_1 PB5
-#define REG_ENDSTOP_1 PINB
-#define PIN_ENDSTOP_2 PB6
-#define REG_ENDSTOP_2 PINB
-#define PIN_DAMPER_0 PF4
-#define REG_DAMPER_0 PINF
-#define PIN_DAMPER_1 PD5
-#define REG_DAMPER_1 PINF
-#define PIN_DAMPER_2 PD6
-#define REG_DAMPER_2 PINF
-#define PIN_FAN PE6
-#define REG_FAN PINE
-#define PIN_FANLAMINA PC6
-#define REG_FANLAMINA PINC
+#define PIN_CS_S0 GPIO26
+#define PIN_CS_S1 GPIO27
+#define PIN_CS_S2 GPIO32
+#define PIN_ENDSTOP_0 GPIO17
+#define PIN_ENDSTOP_1 GPIO18
+#define PIN_ENDSTOP_2 GPIO19
+#define PIN_DAMPER_0 GPIO21
+#define PIN_DAMPER_1 GPIO22
+#define PIN_DAMPER_2 GPIO23
+#define PIN_FAN GPIO33
 
 //aka PD7
 // see ../contrib/avr-utils/lib/arduino-leonardo/pins_arduino.h
-#define PIN_PJON 6
+#define PIN_PJON GPIO25
 
-#define PINREG(x) x
-#define DDRREG(x) *(&x+1)
-#define PORTREG(x) *(&x+2)
 
-#define PIN_HIGH(REG, PIN) *(&REG+2) |= (1 << PIN)
-#define PIN_LOW(REG, PIN) *(&REG+2) &= ~(1 << PIN)
-#define PINMODE_OUTPUT(REG, PIN) *(&REG+1) |= (1 << PIN)  //just use DDR instead of PORT
-#define PINMODE_INPUT(REG, PIN) *(&REG+1) &= ~(1 << PIN)  //just use DDR instead of PORT
-#define IS_HIGH(REG,PIN) REG & (1 << PIN)
+#define PIN_HIGH(REG, PIN) digitalWrite(PIN,HIGH)
+#define PIN_LOW(REG, PIN)  digitalWrite(PIN,LOW)
+#define PINMODE_OUTPUT(REG, PIN) pinMode(PIN,OUTPUT)
+#define PINMODE_INPUT(REG, PIN) pinMode(PIN,INPUT)
+#define IS_HIGH(REG,PIN) digitalRead(PIN) == HIGH
 
 #define OP_SETBIT |=
 #define OP_CLEARBIT &= ~
 #define OP_CHECK &
 #define PIN_SW(PORTDDRREG, PIN, OP) PORTDDRREG OP (1 << PIN)
 
+
+#define _BV(x) (1 << x)
 
 #define HIGHv OP_SETBIT
 #define LOWv OP_CLEARBIT
@@ -104,27 +98,18 @@
 
 ///// HARDWARE CONTROL DEFINES /////
 
-#define ENDSTOP_0_ISHIGH (PINREG(REG_ENDSTOP_0) & _BV(PIN_ENDSTOP_0))
-#define ENDSTOP_1_ISHIGH (PINREG(REG_ENDSTOP_1) & _BV(PIN_ENDSTOP_1))
-#define ENDSTOP_2_ISHIGH (PINREG(REG_ENDSTOP_2) & _BV(PIN_ENDSTOP_2))
-#define ENDSTOP_ISHIGH(x) (PINREG(REG_ENDSTOP_0) & _BV(PIN_ENDSTOP_0 + x))
+#define ENDSTOP_0_ISHIGH digitalRead(PIN_ENDSTOP_0) == HIGH
+#define ENDSTOP_1_ISHIGH digitalRead(PIN_ENDSTOP_1) == HIGH
+#define ENDSTOP_2_ISHIGH digitalRead(PIN_ENDSTOP_2) == HIGH
+#define ENDSTOP_ISHIGH(x) digitalRead(PIN_ENDSTOP_0 + x) == HIGH
 
-#define DAMPER_MOTOR_RUN(x) PORTREG(REG_DAMPER_0) |= _BV(PIN_DAMPER_0 + x)
-#define DAMPER_MOTOR_STOP(x) PORTREG(REG_DAMPER_0) &= ~_BV(PIN_DAMPER_0 + x)
-#define DAMPER_ISRUNNING(x) ((PORTREG(REG_DAMPER_0) & _BV(PIN_DAMPER_0 + x)) > 0)
+#define DAMPER_MOTOR_RUN(x) digitalWrite(PIN_DAMPER_0 + x, HIGH)
+#define DAMPER_MOTOR_STOP(x) digitalWrite(PIN_DAMPER_0 + x, LOW)
+#define DAMPER_ISRUNNING(x) digitalRead(PIN_DAMPER_0 + x) == HIGH
 
-#define FAN_RUN  PIN_LOW(REG_FAN,PIN_FAN)
-#define FAN_STOP PIN_HIGH(REG_FAN,PIN_FAN)
-#define FAN_ISRUNNING ((PORTREG(REG_FAN) & _BV(PIN_FAN)) == 0)
-
-#define FANLAMINA_RUN  PIN_LOW(REG_FANLAMINA,PIN_FANLAMINA)
-#define FANLAMINA_STOP PIN_HIGH(REG_FANLAMINA,PIN_FANLAMINA)
-#define FANLAMINA_ISRUNNING ((PORTREG(REG_FANLAMINA) & _BV(PIN_FANLAMINA)) == 0)
-
-#define CS_SENSOR_0(LOWHIGH) (PIN_SW(PORTREG(REG_CS_S0),PIN_CS_S0,LOWHIGH))
-#define CS_SENSOR_1(LOWHIGH) (PIN_SW(PORTREG(REG_CS_S1),PIN_CS_S1,LOWHIGH))
-#define CS_SENSOR_2(LOWHIGH) (PIN_SW(PORTREG(REG_CS_S2),PIN_CS_S2,LOWHIGH))
-#define CS_SENSOR(x,LOWHIGH) CS_SENSOR_##x(LOWHIGH)
+#define FAN_RUN  digitalWrite(PIN_FAN,LOW)
+#define FAN_STOP digitalWrite(PIN_FAN,HIGH)
+#define FAN_ISRUNNING digitalRead(PIN_FAN) == LOW
 
 
 /// GLOBALS ///

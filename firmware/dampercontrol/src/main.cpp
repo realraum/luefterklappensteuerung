@@ -50,24 +50,24 @@ bool damper_endstop_reached_[NUM_DAMPER];
 
 void initSysClkTimer3(void)
 {
-  // set counter to 0
-  TCNT3 = 0x0000;
-  // no outputs
-  TCCR3A = 0;
-  // Prescaler for Timer3: F_CPU / 1024 -> counts with f= 16KHz ms
-  TCCR3B = _BV(CS32) | _BV(CS30);
-  // set up "clock" comparator for first tick
-  OCR3A = TICK_TIME & 0xFFFF;
-  // enable interrupt
-  TIMSK3 = _BV(OCIE3A);
+//   // set counter to 0
+//   TCNT3 = 0x0000;
+//   // no outputs
+//   TCCR3A = 0;
+//   // Prescaler for Timer3: F_CPU / 1024 -> counts with f= 16KHz ms
+//   TCCR3B = _BV(CS32) | _BV(CS30);
+//   // set up "clock" comparator for first tick
+//   OCR3A = TICK_TIME & 0xFFFF;
+//   // enable interrupt
+//   TIMSK3 = _BV(OCIE3A);
 }
 
 void initPCInterrupt(void)
 {
-  //enable PinChange Interrupt
-  PCICR = _BV(PCIE0);
-  //set up Endstop PinChange Interrupts toggle interrupt
-  PCMSK0 = (1<<PCINT4) | (1<<PCINT5) | (1<<PCINT6);
+  // //enable PinChange Interrupt
+  // PCICR = _BV(PCIE0);
+  // //set up Endstop PinChange Interrupts toggle interrupt
+  // PCMSK0 = (1<<PCINT4) | (1<<PCINT5) | (1<<PCINT6);
 }
 
 void initPINs()
