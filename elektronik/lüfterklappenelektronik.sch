@@ -849,9 +849,9 @@ Wire Wire Line
 Connection ~ 14550 3400
 Wire Wire Line
 	14550 3400 15300 3400
-Text Label 15650 3900 0    50   ~ 0
-USB_D-
 Text Label 15650 4100 0    50   ~ 0
+USB_D-
+Text Label 15650 3900 0    50   ~ 0
 USB_D+
 Wire Wire Line
 	15350 4100 15000 4100
@@ -1660,9 +1660,9 @@ F 4 "SMT" V 5150 1300 50  0001 C CNN "Type"
 	1    15500 4100
 	0    1    1    0   
 $EndComp
-Text Label 15050 4100 0    50   ~ 0
+Text Label 15100 3900 0    50   ~ 0
 UCD+
-Text Label 15050 3900 0    50   ~ 0
+Text Label 15100 4100 0    50   ~ 0
 UCD-
 $Comp
 L Device:R R124
