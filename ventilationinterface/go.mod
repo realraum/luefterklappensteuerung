@@ -1,4 +1,4 @@
-module github.com/realraum/luefterklappensteuerung
+module github.com/realraum/luefterklappensteuerung/ventilationinterface
 
 go 1.16
 

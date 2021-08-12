@@ -1,9 +1,9 @@
 package main
 
 import (
-	"time"
+  "time"
 
-	"github.com/btittelbach/pubsub"
+  "github.com/btittelbach/pubsub"
 )
 
 type SerialLine []byte
