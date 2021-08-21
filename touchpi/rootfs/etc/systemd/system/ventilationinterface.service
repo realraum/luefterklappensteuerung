@@ -1,0 +1,17 @@
+[Unit]
+Description=Control Ventilation
+Wants=network.target
+
+[Service]
+User=pi
+Group=pi
+Type=simple
+Restart=always
+RestartSec=3s
+WorkingDirectory=/home/pi/bin/
+#EnvironmentFile=/home/pi/.config/ventilationinterface.env
+ExecStart=/home/pi/bin/ventilationinterface -tty=/dev/atmega32u4_0 -debug=VENT
+SyslogIdentifier=%i
+
+[Install]
+WantedBy=default.target

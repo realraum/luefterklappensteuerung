@@ -193,8 +193,7 @@ sudo cp -rf ${MOUNTPTH}/usr/share/X11/xorg.conf.d/10-evdev.conf ${MOUNTPTH}/usr/
 gobuildandcp ../ventilationinterface ${MOUNTPTH}/home/pi/bin/
 sudo rsync --chown=1000:1000 -vr ../ventilationinterface/public ${MOUNTPTH}/home/pi/bin/
 sudo setcap cap_net_bind_service=ep ${MOUNTPTH}/home/pi/bin/ventilationinterface
-## instead of enable, rsync the symlink
-#runchroot /bin/systemctl enable ventilationinterface.service
+runchroot /bin/systemctl enable ventilationinterface.service
 runchroot /usr/sbin/addgroup pi tty
 runchroot /bin/loginctl enable-linger pi
 runchroot /bin/systemctl disable networking.service dhcpcd.service
