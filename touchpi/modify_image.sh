@@ -185,17 +185,21 @@ cat $MYSSHPUBKEY | sudo tee -a ${MOUNTPTH}/home/pi/.ssh/authorized_keys
 ##chown user dir back from --chown=root:root
 sudo chown 1000:1000 -R ${MOUNTPTH}/home/${PIUSER}(N) ${MOUNTPTH}/home/debian(N)
 modifyBootConfigForTouch "$MOUNTPTH/boot/config.txt"
-disabledhcpfor "eth0"
 disabledhcpfor "usb0"
+disabledhcpfor "eth0"
 disableAutoResizeFS
-sudo cp -rf ${MOUNTPTH}/usr/share/X11/xorg.conf.d/10-evdev.conf ${MOUNTPTH}/usr/share/X11/xorg.conf.d/45-evdev.conf                                 
+sudo cp -rf ${MOUNTPTH}/usr/share/X11/xorg.conf.d/10-evdev.conf ${MOUNTPTH}/usr/share/X11/xorg.conf.d/45-evdev.conf
 
 gobuildandcp ../ventilationinterface ${MOUNTPTH}/home/pi/bin/
-sudo rsync --chmod 1000:1000 -vr ../ventilationinterface/public ${MOUNTPTH}/home/pi/bin/
+sudo rsync --chown=1000:1000 -vr ../ventilationinterface/public ${MOUNTPTH}/home/pi/bin/
 sudo setcap cap_net_bind_service=ep ${MOUNTPTH}/home/pi/bin/ventilationinterface
 ## instead of enable, rsync the symlink
 #runchroot /bin/systemctl enable ventilationinterface.service
+runchroot /usr/sbin/addgroup pi tty
 runchroot /bin/loginctl enable-linger pi
+runchroot /bin/systemctl disable networking.service dhcpcd.service
+runchroot /bin/systemctl mask networking.service dhcpcd.service
+runchroot /bin/systemctl enable systemd-networkd.service ssh.service
 
 
 
@@ -206,6 +210,18 @@ runchroot /usr/bin/chsh -s /bin/zsh root
 runchroot /usr/bin/chsh -s /bin/zsh ${PIUSER}
 
 modify_fstab
+
+### install LCD Waveshare driver
+git clone --depth 1 https://github.com/waveshare/LCD-show "$MOUNTPTH"/home/pi/LCD-show
+runchroot /usr/bin/bash -x /home/pi/LCD-show/LCD32-show
+
+
+### modify resolv.conf
+cat <<EOF >! "$MOUNTPTH"/etc/resolv.conf
+nameserver 192.168.127.254
+options edns0 trust-ad
+search lan realraum.at
+EOF
 
 ### zero out free space
 for zerofile in "$MOUNTPTH"/zero "$MOUNTPTH"/var/zero "$MOUNTPTH"/home/zero "$MOUNTPTH"/boot/zero; do
