@@ -1,0 +1,15 @@
+[Unit]
+Description=startx as user
+Wants=network.target
+
+[Service]
+Nice=10
+User=root
+Type=simple
+Restart=always
+## this will automatically start x with default spectrwm session which will start the rest from spectrwm.conf
+ExecStart=/usr/bin/xinit /usr/local/bin/start-kiosk-root.sh -- -nocursor
+SyslogIdentifier=%i
+
+[Install]
+WantedBy=default.target
