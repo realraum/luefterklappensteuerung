@@ -1,0 +1,458 @@
+esphome:
+  name: r3-damper-controller
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: calibrate_all_dampers
+
+esp32:
+  board: esp32dev
+
+
+wifi:
+  ssid: !secret realstuffwifi_name
+  password: !secret realstuffwifi_pass
+
+api:
+
+ota:
+  - platform: esphome
+
+logger:
+
+# ─── GLOBALS ─────────────────────────────────────────────────────────────────
+globals:
+  - id: damper1_full_turn_ms
+    type: uint32_t
+    restore_value: true
+    initial_value: '3000'
+  - id: damper2_full_turn_ms
+    type: uint32_t
+    restore_value: true
+    initial_value: '3000'
+  - id: damper3_full_turn_ms
+    type: uint32_t
+    restore_value: true
+    initial_value: '3000'
+
+  # Current position: 0=closed, 50=half-open, 100=open
+  - id: desired_damper1_position
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: desired_damper2_position
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: desired_damper3_position
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+# ─── BINARY SENSORS (endstops, active LOW → pulled to GND when closed) ───────
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO17
+      mode: INPUT_PULLUP
+    id: endstop_damper1
+    name: "Endstop Damper 1"
+    # Pin pulls LOW when triggered → invert so is_on means "at closed position"
+    filters:
+      - invert:
+
+  - platform: gpio
+    pin:
+      number: GPIO18
+      mode: INPUT_PULLUP
+    id: endstop_damper2
+    name: "Endstop Damper 2"
+    filters:
+      - invert:
+
+  - platform: gpio
+    pin:
+      number: GPIO19
+      mode: INPUT_PULLUP
+    id: endstop_damper3
+    name: "Endstop Damper 3"
+    filters:
+      - invert:
+
+# ─── OUTPUTS (MOSFET gates) ───────────────────────────────────────────────────
+output:
+  - platform: ledc
+    pin: GPIO21
+    id: out_damper1
+    frequency: 1000 Hz
+
+  - platform: ledc
+    pin: GPIO22
+    id: out_damper2
+    frequency: 1000 Hz
+
+  - platform: ledc
+    pin: GPIO23
+    id: out_damper3
+    frequency: 1000 Hz
+
+  - platform: gpio
+    pin: GPIO33
+    id: out_fan
+
+  - platform: gpio
+    pin: GPIO2
+    id: out_led
+    inverted: true   # active low
+
+# ─── SWITCHES ────────────────────────────────────────────────────────────────
+switch:
+  - platform: output
+    name: "Fan"
+    id: fan_switch
+    output: out_fan
+
+  - platform: output
+    name: "Onboard LED"
+    id: onboard_led
+    output: out_led
+
+# ─── SPI ─────────────────────────────────────────────────────────────────────
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+# ─── BME280 SENSORS ──────────────────────────────────────────────────────────
+sensor:
+  - platform: bme280_spi
+    cs_pin: GPIO26
+    id: bme280_1
+    temperature:
+      name: "BME280-1 Temperature"
+      id: bme280_1_temp
+    pressure:
+      name: "BME280-1 Pressure"
+    humidity:
+      name: "BME280-1 Humidity"
+    update_interval: 30s
+
+  - platform: bme280_spi
+    cs_pin: GPIO27
+    id: bme280_2
+    temperature:
+      name: "BME280-2 Temperature"
+      id: bme280_2_temp
+    pressure:
+      name: "BME280-2 Pressure"
+    humidity:
+      name: "BME280-2 Humidity"
+    update_interval: 30s
+
+  - platform: bme280_spi
+    cs_pin: GPIO32
+    id: bme280_3
+    temperature:
+      name: "BME280-3 Temperature"
+      id: bme280_3_temp
+    pressure:
+      name: "BME280-3 Pressure"
+    humidity:
+      name: "BME280-3 Humidity"
+    update_interval: 30s
+
+  - platform: template
+    name: "Damper 1 Full Turn ms"
+    lambda: 'return (float)id(damper1_full_turn_ms);'
+    update_interval: 60s
+    unit_of_measurement: ms
+
+  - platform: template
+    name: "Damper 2 Full Turn ms"
+    lambda: 'return (float)id(damper2_full_turn_ms);'
+    update_interval: 60s
+    unit_of_measurement: ms
+
+  - platform: template
+    name: "Damper 3 Full Turn ms"
+    lambda: 'return (float)id(damper3_full_turn_ms);'
+    update_interval: 60s
+    unit_of_measurement: ms
+
+# ─── COVERS ──────────────────────────────────────────────────────────────────
+# Position mapping:
+#   0%   → closed   (home to endstop, stop)
+#   50%  → half-open (home + full_turn/4)
+#   100% → open      (home + full_turn/2)
+#
+# HA cover entity supports:
+#   open_cover   → sets position 100
+#   close_cover  → sets position 0
+#   set_cover_position(50) → half-open
+cover:
+  - platform: template
+    name: "Damper 1"
+    id: cover_damper1
+    device_class: damper
+    optimistic: false
+    has_position: true
+    position_action:
+      - globals.set:
+          id: desired_damper1_position
+          value: !lambda 'return (int)(pos * 100);'
+      - script.execute: move_damper1
+    open_action:
+      - globals.set:
+          id: desired_damper1_position
+          value: '100'
+      - script.execute: move_damper1
+    close_action:
+      - globals.set:
+          id: desired_damper1_position
+          value: '0'
+      - script.execute: move_damper1
+    stop_action:
+      - output.set_level:
+          id: out_damper1
+          level: 0.0
+    lambda: |-
+      if (id(desired_damper1_position) == 0)  return COVER_CLOSED;
+      if (id(desired_damper1_position) == 100) return COVER_OPEN;
+      return COVER_OPEN;   // intermediate → report open; position reported separately
+
+  - platform: template
+    name: "Damper 2"
+    id: cover_damper2
+    device_class: damper
+    optimistic: false
+    has_position: true
+    position_action:
+      - globals.set:
+          id: desired_damper2_position
+          value: !lambda 'return (int)(pos * 100);'
+      - script.execute: move_damper2
+    open_action:
+      - globals.set:
+          id: desired_damper2_position
+          value: '100'
+      - script.execute: move_damper2
+    close_action:
+      - globals.set:
+          id: desired_damper2_position
+          value: '0'
+      - script.execute: move_damper2
+    stop_action:
+      - output.set_level:
+          id: out_damper2
+          level: 0.0
+    lambda: |-
+      if (id(desired_damper2_position) == 0)  return COVER_CLOSED;
+      if (id(desired_damper2_position) == 100) return COVER_OPEN;
+      return COVER_OPEN;
+
+  - platform: template
+    name: "Damper 3"
+    id: cover_damper3
+    device_class: damper
+    optimistic: false
+    has_position: true
+    position_action:
+      - globals.set:
+          id: desired_damper3_position
+          value: !lambda 'return (int)(pos * 100);'
+      - script.execute: move_damper3
+    open_action:
+      - globals.set:
+          id: desired_damper3_position
+          value: '100'
+      - script.execute: move_damper3
+    close_action:
+      - globals.set:
+          id: desired_damper3_position
+          value: '0'
+      - script.execute: move_damper3
+    stop_action:
+      - output.set_level:
+          id: out_damper3
+          level: 0.0
+    lambda: |-
+      if (id(desired_damper3_position) == 0)  return COVER_CLOSED;
+      if (id(desired_damper3_position) == 100) return COVER_OPEN;
+      return COVER_OPEN;
+    # position_lambda: 'return (float)id(desired_damper3_position) / 100.0f;'
+
+# ─── SCRIPTS ─────────────────────────────────────────────────────────────────
+script:
+  # ── Calibration ─────────────────────────────────────────────────────────────
+  - id: calibrate_all_dampers
+    then:
+      - script.execute: calibrate_damper1
+      - script.wait: calibrate_damper1
+      - script.execute: calibrate_damper2
+      - script.wait: calibrate_damper2
+      - script.execute: calibrate_damper3
+      - script.wait: calibrate_damper3
+
+  - id: calibrate_damper1
+    then:
+      - logger.log: "Calibrating damper 1..."
+      # Drive until first endstop hit (closed)
+      - output.set_level:
+          id: out_damper1
+          level: 1.0
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper1
+          timeout: 10s
+      # Wait for endstop to release (motor moved past closed)
+      - wait_until:
+          condition:
+            binary_sensor.is_off: endstop_damper1
+          timeout: 10s
+      # Record timestamp, wait for next endstop hit = one full revolution
+      - lambda: 'id(damper1_full_turn_ms) = millis();'
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper1
+          timeout: 15s
+      - lambda: |-
+          uint32_t elapsed = millis() - id(damper1_full_turn_ms);
+          id(damper1_full_turn_ms) = elapsed;
+          ESP_LOGI("cal", "Damper 1 full turn: %u ms", elapsed);
+      - output.set_level:
+          id: out_damper1
+          level: 0.0
+      # Leave damper at closed position; update cover state
+      - lambda: 'id(desired_damper1_position) = 0;'
+
+  - id: calibrate_damper2
+    then:
+      - logger.log: "Calibrating damper 2..."
+      - output.set_level:
+          id: out_damper2
+          level: 1.0
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper2
+          timeout: 10s
+      - wait_until:
+          condition:
+            binary_sensor.is_off: endstop_damper2
+          timeout: 10s
+      - lambda: 'id(damper2_full_turn_ms) = millis();'
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper2
+          timeout: 15s
+      - lambda: |-
+          uint32_t elapsed = millis() - id(damper2_full_turn_ms);
+          id(damper2_full_turn_ms) = elapsed;
+          ESP_LOGI("cal", "Damper 2 full turn: %u ms", elapsed);
+      - output.set_level:
+          id: out_damper2
+          level: 0.0
+      - lambda: 'id(desired_damper2_position) = 0;'
+
+  - id: calibrate_damper3
+    then:
+      - logger.log: "Calibrating damper 3..."
+      - output.set_level:
+          id: out_damper3
+          level: 1.0
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper3
+          timeout: 10s
+      - wait_until:
+          condition:
+            binary_sensor.is_off: endstop_damper3
+          timeout: 10s
+      - lambda: 'id(damper3_full_turn_ms) = millis();'
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper3
+          timeout: 15s
+      - lambda: |-
+          uint32_t elapsed = millis() - id(damper3_full_turn_ms);
+          id(damper3_full_turn_ms) = elapsed;
+          ESP_LOGI("cal", "Damper 3 full turn: %u ms", elapsed);
+      - output.set_level:
+          id: out_damper3
+          level: 0.0
+      - lambda: 'id(desired_damper3_position) = 0;'
+
+  # ── Movement scripts ─────────────────────────────────────────────────────────
+  # Always homes to closed endstop first, then runs for a fraction of full_turn_ms:
+  #   0%  → stop at endstop (closed)
+  #   50% → endstop + full_turn/4
+  #   100%→ endstop + full_turn/2
+  # Any intermediate value is linearly interpolated between 0 and full_turn/2.
+  - id: move_damper1
+    mode: restart
+    then:
+      # Home to closed
+      - output.set_level:
+          id: out_damper1
+          level: 1.0
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper1
+          timeout: 15s
+      # Run extra time proportional to requested position
+      - delay: !lambda |-
+          int pos = id(desired_damper1_position);   // 0–100
+          if (pos > 0) {
+            // Map 0–100% → 0 to full_turn/2 ms
+            uint32_t extra_ms = (uint32_t)(id(damper1_full_turn_ms) / 2.0f * pos / 100.0f);
+            ESP_LOGI("move", "Damper1 pos=%d extra=%u ms", pos, extra_ms);
+            return(extra_ms);
+          } else {return 0;}
+      - output.set_level:
+          id: out_damper1
+          level: 0.0
+
+  - id: move_damper2
+    mode: restart
+    then:
+      - output.set_level:
+          id: out_damper2
+          level: 1.0
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper2
+          timeout: 15s
+      # Run extra time proportional to requested position
+      - delay: !lambda |-
+          int pos = id(desired_damper2_position);   // 0–100
+          if (pos > 0) {
+            // Map 0–100% → 0 to full_turn/2 ms
+            uint32_t extra_ms = (uint32_t)(id(damper2_full_turn_ms) / 2.0f * pos / 100.0f);
+            ESP_LOGI("move", "Damper2 pos=%d extra=%u ms", pos, extra_ms);
+            return(extra_ms);
+          } else {return 0;}
+      - output.set_level:
+          id: out_damper2
+          level: 0.0
+
+  - id: move_damper3
+    mode: restart
+    then:
+      - output.set_level:
+          id: out_damper3
+          level: 1.0
+      - wait_until:
+          condition:
+            binary_sensor.is_on: endstop_damper3
+          timeout: 15s
+      # Run extra time proportional to requested position
+      - delay: !lambda |-
+          int pos = id(desired_damper3_position);   // 0–100
+          if (pos > 0) {
+            // Map 0–100% → 0 to full_turn/2 ms
+            uint32_t extra_ms = (uint32_t)(id(damper3_full_turn_ms) / 2.0f * pos / 100.0f);
+            ESP_LOGI("move", "Damper3 pos=%d extra=%u ms", pos, extra_ms);
+            return(extra_ms);
+          } else {return 0;}
+      - output.set_level:
+          id: out_damper2
+          level: 0.0
