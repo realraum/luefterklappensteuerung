@@ -6,8 +6,8 @@
 | `Damper2`      | 22   | Damper DC Motor MOSFET (Q102)                                | PWM capable, Controls the second damper motor via MOSFET gate driver. |
 | `Damper3`      | 23   | Damper DC Motor MOSFET (Q103) / Fan Control MOSFET           | PWM capable, Controls the third damper motor. This same pin is also used for fan control via the same MOSFET (Q103) [^1]. |
 | Fan            | 33   | Fan on/off SSR                                               |                                                              |
-| EndstopDamper1 | 28   |                                                              | pulls down when endstop-sync hit                             |
-| EndstopDamper2 | 30   |                                                              | pulls down when endstop-sync hit                             |
+| EndstopDamper1 | 17   |                                                              | pulls down when endstop-sync hit                             |
+| EndstopDamper2 | 18   |                                                              | pulls down when endstop-sync hit                             |
 | EndstopDamper3 | 31   |                                                              | pulls down when endstop-sync hit                             |
 | `ONBOARD_LED`  | 2    | Onboard LED (D105)                                           | Drives the green onboard LED. The circuit is connected to +3V3 through a 110Ω resistor (R112), indicating it is active low (pin must be driven low to turn the LED on) [^1]. |
 | `PS1_CS`       | 26   | Optical Endstop 1 (U101)                                     | Connected to the first optical endstop (Gabellichtschranke) [^1]. |
