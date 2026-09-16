@@ -1,4 +1,6 @@
 (sym_lib_table
-  (lib (name lüfterklappenelektronik-rescue)(type Legacy)(uri ${KIPRJMOD}/lüfterklappenelektronik-rescue.lib)(options "")(descr ""))
-  (lib (name ESP8266wemosD1)(type Legacy)(uri ${KIPRJMOD}/wemos-d1-mini-kicad/libraries/wemos_mini.lib)(options "")(descr ""))
+	(version 7)
+	(lib (name "lüfterklappenelektronik-rescue") (type "Legacy") (uri "${KIPRJMOD}/lüfterklappenelektronik-rescue.lib") (options "") (descr ""))
+	(lib (name "ESP8266wemosD1") (type "Legacy") (uri "${KIPRJMOD}/wemos-d1-mini-kicad/libraries/wemos_mini.lib") (options "") (descr ""))
+	(lib (name "lüfterklappenelektronik-cache") (type "Legacy") (uri "/home/bernhard/realraum/lüfterklappensteuerung/elektronik/lüfterklappenelektronik-cache.lib") (options "") (descr "Legacy project cache library"))
 )
