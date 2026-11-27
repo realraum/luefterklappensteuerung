@@ -1,2 +1,0 @@
-SUBSYSTEMS=="usb",ATTRS{idVendor}=="03eb",ATTRS{idProduct}=="204b",OWNER:="pi",GROUP:="dialup",MODE="0660",SYMLINK+="atmega32u4_%n"
-        

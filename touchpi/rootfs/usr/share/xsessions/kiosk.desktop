@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=Kiosk Mode
-Comment=Start the Kiosk Script
-Exec=/usr/local/bin/start-kiosk.sh
-TryExec=/usr/local/bin/start-kiosk.sh
-Type=Application
